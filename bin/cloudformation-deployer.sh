@@ -10,4 +10,4 @@
 
 . ./logging.sh
 
-aws cloudformation deploy --template-file ${1} --stack-name ${2} --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation deploy --template-file "${1}" --stack-name "${2}" --capabilities CAPABILITY_NAMED_IAM
