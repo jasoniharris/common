@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ######################################
 # Author: Jason Harris
-# Function: File to deploy a Cloudformation template
+# Function: Program to deploy a Cloudformation template
 #
 #*************************************
 # Ver * Who * Date * Comments
@@ -10,4 +10,10 @@
 
 . ./logging.sh
 
-aws cloudformation deploy --template-file "${1}" --stack-name "${2}" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+deploy (){
+    einfo "Deploying: ${1}"
+    aws cloudformation deploy --template-file ${1} --stack-name ${2} --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+    check_output $?
+}
+
+deploy "$1" "$2"
