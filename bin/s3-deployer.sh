@@ -10,15 +10,15 @@
 
 . ./logging.sh
 
+deploy (){
+    template=${1}.${2}
+    paramFile="${1}-parameters.json"
+    einfo "Deploying ${template}"
+    mv cloudformation-templates/${template} ${template}
+    mv parameter-files/${paramFile} ${paramFile}
+    zip -r artifact.zip ${template} ${paramFile}
+    aws s3 cp artifact.zip s3://wedding-infrastructure-src-bkt-728887003700 --sse aws:kms
+    check_output $?
+}
 
-
-            - echo "Clone common bash scripts"
-            - git clone git@bitbucket.org:cloudnativeservices/bash-scripts.git
-            - echo "Deploying to S3"
-            - mv $BITBUCKET_CLONE_DIR/cloudformation-templates/iam.yaml iam.yaml
-            - mv $BITBUCKET_CLONE_DIR/parameter-files/iam-parameters.json iam-parameters.json
-            - zip -r artifact.zip iam.yaml iam-parameters.json
-            - aws s3 cp artifact.zip s3://adfs-iam-src-bkt-439363829178 --sse aws:kms
-            - cd bash-scripts/bin
-            - chmod +x track-delivery-pipeline.sh
-            - ./track-delivery-pipeline.sh "adfs-iam-pipeline"
+deploy "${1}" "${2}"
