@@ -19,7 +19,7 @@ fail="Failed"
 inProgress="InProgress"
 pipelineIDFile="response.json"
 pipelineStatusFile="responseStatus.json"
-sleepTime=30
+sleepTime=60
 counter=0
 checkAttempts=3
 
