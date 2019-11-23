@@ -11,14 +11,14 @@
 . ./logging.sh
 
 deploy (){
-    template=${1}.${2}
-    paramFile="${1}-parameters.json"
+    template=${2}.${3}
+    paramFile="${2}-parameters.json"
     einfo "Deploying ${template}"
-    mv cloudformation-templates/${template} ${template}
-    mv parameter-files/${paramFile} ${paramFile}
+    cp ${1}/cloudformation-templates/${template} ${template}
+    cp ${1}/parameter-files/${paramFile} ${paramFile}
     zip -r artifact.zip ${template} ${paramFile}
-    aws s3 cp artifact.zip s3://wedding-infrastructure-src-bkt-728887003700 --sse aws:kms
+    aws s3 cp artifact.zip s3://wedding-infrastructure-src-bkt-728887003700 --sse aws:kms --profile jh-pipeline
     check_output $?
 }
 
-deploy "${1}" "${2}"
+deploy "${1}" "${2}" "${3}"
