@@ -1,86 +1,85 @@
 #!/usr/bin/env bash
 ######################################
 # Author: Jason Harris
-# Function: File to validate json files
-# Iterate over the cloudformation templates
-# Pre Requisits: AWS CLI, JQ
+# Function: This shell script tracks the progress of a codepipeline run
 #
 #*************************************
 # Ver * Who * Date * Comments
 #*************************************
-# 1.0 * JH * 12/11/19 * Initial Version
+# 1.0 * JH * 17/05/19 * Initial Version
+#
 
 . ./logging.sh
 
-process_cf_templates () {
-    case ${1} in
-        "json")
-                key="json"
-                ;;
-        "yaml")
-                key="yaml"
-                ;;
-        *)
-                eerror "Unknown key supplied. Please supply json | yaml."
-                check_output 2
-                ;;
-    esac
+export pipeline=${1}
 
-    cf_templates=`ls ${cf_resources_directory}/cloudformation-templates/*.${key}`
+success="Succeeded"
+superseded="Superseded"
+fail="Failed"
+inProgress="InProgress"
+pipelineIDFile="response.json"
+pipelineStatusFile="responseStatus.json"
+sleepTime=30
+counter=0
+checkAttempts=3
 
-    for filename in ${cf_templates}
-    do
-        base_filename=$(basename ${filename})
-
-        einfo "Working: ${base_filename}"
-
-        cf_template_basename=`echo ${base_filename} | cut -f1 -d"."`
-
-        validate_filename ${cf_template_basename}
-
-        if [[ `find ${cf_resources_directory}/parameter-files -name ${cf_template_basename}-parameters.json` ]]
-        then
-            einfo "Working: ${filename}"
-            cd ${cf_resources_directory}/cloudformation-templates
-            validate_template ${filename}
-            einfo "Working: ${cf_template_basename}-parameters.json"
-            cd ${cf_resources_directory}/parameter-files
-            validate_json ${cf_resources_directory}/parameter-files/${cf_template_basename}-parameters.json
-        else
-            eerror "Matching parameter file not found for: ${base_filename}"
-            check_output 2
-        fi
-    done
-    eok "Processing completed."
-}
-
-validate_filename (){
-    if [[ ${1} =~ [[:upper:]] ]]
-    then
-        eerror "Filename contains uppercase character(s): ${1}"
-        check_output 2
-    fi
-}
-
-validate_template (){
-    einfo "Validating: ${1}"
-    aws cloudformation validate-template --template-body file://${1}
-    check_output $?
-}
-
-validate_json (){
-    einfo "Validating: ${1}"
-    cat ${1} | jq empty
-    check_output $?
-}
-
-if [[ -z $1 ]]
+if [ -z "${AWS_REGION}" ]
 then
-    eerror "Please supply directory of Cloudformation Templates"
-    exit $?
+      export AWS_REGION=${DEFAULT_AWS_REGION}
 else
-    cf_resources_directory=$1
+      export AWS_REGION="eu-west-1"
 fi
 
-process_cf_templates "json"
-process_cf_templates "yaml"
+function parseResponse() {
+    export counter=$((counter+1))
+    if [[ ${counter} -ge ${checkAttempts} ]]
+    then
+        eerror "Maximum number of retries attempted."
+        check_output 2
+    fi
+
+    aws codepipeline list-pipeline-executions --pipeline-name ${pipeline} > ${pipelineIDFile}
+    export pipelineExecId=`jq --raw-output '.pipelineExecutionSummaries[0].pipelineExecutionId' ${pipelineIDFile}`
+    einfo "pipelineExecId is: ${pipelineExecId}"
+}
+
+function trackProgress() {
+    aws codepipeline get-pipeline-execution --pipeline-name ${pipeline} --pipeline-execution-id ${pipelineExecId}> ${pipelineStatusFile}
+    export executionStatus=`jq --raw-output '.pipelineExecution.status' ${pipelineStatusFile}`
+}
+
+function processResponse() {
+    while [[ ${executionStatus} = ${inProgress} ]]
+    do
+        einfo "Pipeline in progress, checking again..."
+        sleep ${sleepTime}
+        trackProgress
+    done
+
+    case ${executionStatus} in
+        ${success})
+            einfo "Pipeline completed successfully!"
+            check_output 0
+            ;;
+        ${superseded})
+            eerror "Pipeline completed successfully, however with the status Superseded as another pipeline has run successfully since this one was executed."
+            check_output 2
+            ;;
+        ${fail})
+            einfo "Status is fail, however going to wait for ${sleepTime}s to ensure the CodePipeline service has updated to the latest execution ID."
+            sleep ${sleepTime}
+            parseResponse
+            trackProgress
+            processResponse
+            eerror "Pipeline failed!"
+            check_output 2
+            ;;
+    esac
+}
+
+
+# Run order
+sleep ${sleepTime}
+parseResponse
+trackProgress
+processResponse
