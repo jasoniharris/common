@@ -17,7 +17,7 @@ deploy (){
     cp ${1}/cloudformation-templates/${template} ${template}
     cp ${1}/parameter-files/${paramFile} ${paramFile}
     zip -r artifact.zip ${template} ${paramFile}
-    aws s3 cp artifact.zip s3://wedding-infrastructure-src-bkt-728887003700 --sse aws:kms --profile jh-pipeline
+    aws s3 cp artifact.zip s3://wedding-infrastructure-src-bkt-728887003700 --sse aws:kms
     check_output $?
 }
 
