@@ -1,19 +1,32 @@
 #!/usr/bin/env bash
+######################################
+# Author: Jason Harris
+# Function: File to deploy SAM Lambda functions
+#
+#*************************************
+# Ver * Who * Date * Comments
+#*************************************
+# 1.0 * JH * 12/11/19 * Initial Version
 
-DB_TABLE=`aws cloudformation describe-stacks --stack-name wedding-infrastructure --query "Stacks[0].Outputs[?OutputKey=='RSVPDynamodbTable'].OutputValue" --output text --profile jh-pipeline`
-ROLE=`aws cloudformation describe-stacks --stack-name wedding-infrastructure --query "Stacks[0].Outputs[?OutputKey=='IAMLambdaServiceRole'].OutputValue" --output text --profile jh-pipeline`
+. ./logging.sh
 
-echo "DBTABLE is ${DB_TABLE}"
-echo "ROLE is ${ROLE}"
+package(){
 sam package \
   --template-file template.yml \
   --output-template-file package.yml \
-  --s3-bucket harris-wedding-lambda-retrieve \
-  --profile jh-pipeline
+  --s3-bucket ${1}
+check_output $?
+}
 
+deploy(){
 sam deploy \
   --template-file package.yml \
-  --stack-name harris-wedding-lambda-retrieve \
-  --capabilities CAPABILITY_IAM \
-  --parameter-overrides DBTABLE=$DB_TABLE ROLE=$ROLE \
-  --profile jh-pipeline
+  --stack-name ${1} \
+  --capabilities CAPABILITY_IAM
+check_output $?
+}
+
+package "$1"
+deploy "$1"
+
+
